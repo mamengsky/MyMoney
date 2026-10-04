@@ -50,7 +50,7 @@ NOMINAL, ACCOUNT, KATEGORI, CUSTOM = range(4)
 
 EXPENSE_OPTIONS = [
     "Biaya Listrik", "Biaya Internet", "Bensin", "Service Motor",
-    "Makan dan Minum", "Rokok", "Pods", "Jajan", "Kesehatan", "Jatah Ayang",
+    "Makan dan Minum", "Rokok", "Pods", "Jajan", "Kebutuhan Rumah", "Jatah Ayang",
 ]
 INCOME_OPTIONS = ["Gaji / Income Utama", "Bonus / Sampingan"]
 
