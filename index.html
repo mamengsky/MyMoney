@@ -212,11 +212,8 @@
                     <div class="flex items-center gap-4 w-full sm:w-auto">
                         <div class="flex items-center gap-2">
                             <label class="text-xs font-bold text-slate-500 dark:text-slate-400">Year</label>
-                            <select id="dashboardYear" class="text-xs font-bold bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 text-slate-800 dark:text-slate-100 focus:outline-none">
-                                <option value="2026" selected>2026</option>
-                                <option value="2025">2025</option>
-                                <option value="2024">2024</option>
-                            </select>
+                            <!-- Opsi tahun diisi otomatis oleh renderYearOptions() -->
+                            <select id="dashboardYear" class="text-xs font-bold bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 text-slate-800 dark:text-slate-100 focus:outline-none"></select>
                         </div>
 
                         <div class="flex items-center gap-2">
@@ -501,20 +498,8 @@
 
                 <div>
                     <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">Kategori</label>
-                    <select id="txCategory" class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
-                        <option value="Biaya Listrik">Biaya Listrik</option>
-                        <option value="Biaya Internet">Biaya Internet</option>
-                        <option value="Bensin">Bensin</option>
-                        <option value="Service Motor">Service Motor</option>
-                        <option value="Makan dan Minum">Makan dan Minum</option>
-                        <option value="Rokok">Rokok</option>
-                        <option value="Pods">Pods</option>
-                        <option value="Jajan">Jajan</option>
-                        <option value="Kesehatan">Kesehatan</option>
-                        <option value="Jatah Ayang">Jatah Ayang</option>
-                        <option value="Gaji & Income">Gaji & Income</option>
-                        <option value="Lainnya">Lainnya</option>
-                    </select>
+                    <!-- Opsi kategori diisi otomatis oleh renderCategoryOptions() mengikuti nama alokasi -->
+                    <select id="txCategory" class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"></select>
                 </div>
 
                 <div>
@@ -606,6 +591,10 @@
             </div>
 
             <form id="allocationForm" class="space-y-3">
+                <div class="flex items-center gap-2 text-[10px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-1">
+                    <span class="w-1/2">Nama Alokasi</span>
+                    <span class="w-1/2">Nominal (Rp)</span>
+                </div>
                 <div id="allocationFields" class="space-y-2.5">
                     <!-- Fields dynamically generated -->
                 </div>
@@ -690,6 +679,48 @@
                 currency: 'IDR',
                 maximumFractionDigits: 0
             }).format(number).replace('Rp', 'Rp');
+        }
+
+        // Mencegah karakter khusus merusak HTML (nama alokasi bisa diketik bebas)
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        // Daftar tahun otomatis: dari 2024 sampai tahun depan (atau tahun terbesar yang ada datanya)
+        function renderYearOptions() {
+            const select = document.getElementById('dashboardYear');
+            const currentYear = new Date().getFullYear();
+            const years = new Set([2024, currentYear, currentYear + 1, state.selectedYear || currentYear]);
+
+            state.transactions.forEach(tx => {
+                if (!tx.date) return;
+                const y = new Date(tx.date).getFullYear();
+                if (!isNaN(y)) years.add(y);
+            });
+
+            const minYear = Math.min(...years);
+            const maxYear = Math.max(...years);
+
+            let html = '';
+            for (let y = maxYear; y >= minYear; y--) {
+                html += `<option value="${y}">${y}</option>`;
+            }
+            select.innerHTML = html;
+            select.value = state.selectedYear || currentYear;
+        }
+
+        // Dropdown kategori di form transaksi mengikuti nama alokasi
+        function renderCategoryOptions() {
+            const select = document.getElementById('txCategory');
+            const prev = select.value;
+            const cats = Array.from(new Set([...Object.keys(state.allocations), 'Gaji & Income', 'Lainnya']));
+            select.innerHTML = cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+            if (cats.includes(prev)) select.value = prev;
         }
 
         function saveState() {
@@ -791,7 +822,7 @@
         // Reset All Data
         document.getElementById('resetDataBtn').addEventListener('click', () => {
             if (confirm("Apakah Anda yakin ingin mereset seluruh data transaksi dan impian?")) {
-                state = { ...DEFAULT_STATE };
+                state = JSON.parse(JSON.stringify(DEFAULT_STATE));
                 saveState();
                 showToast("Semua data telah direset.");
             }
@@ -891,7 +922,6 @@
         const dashboardMonthSelect = document.getElementById('dashboardMonth');
 
         if (dashboardYearSelect && dashboardMonthSelect) {
-            dashboardYearSelect.value = state.selectedYear || 2026;
             dashboardMonthSelect.value = state.selectedMonth !== undefined ? state.selectedMonth : 8;
 
             dashboardYearSelect.addEventListener('change', (e) => {
@@ -908,6 +938,8 @@
         // Main Render Engine
         function renderApp() {
             applyTheme();
+            renderYearOptions();
+            renderCategoryOptions();
             document.getElementById('accountName').innerText = state.user;
 
             const targetYear = state.selectedYear || 2026;
@@ -925,7 +957,7 @@
             let totalSpendings = 0;
 
             const categoryRealization = {};
-            INITIAL_EXPENSE_ITEMS.forEach(cat => categoryRealization[cat] = 0);
+            Object.keys(state.allocations).forEach(cat => categoryRealization[cat] = 0);
 
             monthTx.forEach(tx => {
                 const amt = Number(tx.amount);
@@ -971,7 +1003,7 @@
             let totalAllocation = 0;
             let totalRealizationAll = 0;
 
-            const expenseItemsList = Array.from(new Set([...INITIAL_EXPENSE_ITEMS, ...Object.keys(state.allocations)]));
+            const expenseItemsList = Object.keys(state.allocations);
 
             const tableRows = expenseItemsList.map(cat => {
                 const alloc = Number(state.allocations[cat] || 0);
@@ -994,7 +1026,7 @@
 
                 return `
                     <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors">
-                        <td class="py-3 px-4 font-bold text-slate-800 dark:text-slate-100">${cat}</td>
+                        <td class="py-3 px-4 font-bold text-slate-800 dark:text-slate-100">${escapeHtml(cat)}</td>
                         <td class="py-3 px-4 text-right font-semibold text-slate-600 dark:text-slate-300">${formatRupiah(alloc)}</td>
                         <td class="py-3 px-4 text-right font-semibold text-slate-600 dark:text-slate-300">${formatRupiah(real)}</td>
                         <td class="py-3 px-4">
@@ -1106,7 +1138,7 @@
             tbody.innerHTML = filtered.map(t => `
                 <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
                     <td class="py-3 px-3 text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">${t.date}</td>
-                    <td class="py-3 px-3 font-semibold text-slate-700 dark:text-slate-200">${t.category}</td>
+                    <td class="py-3 px-3 font-semibold text-slate-700 dark:text-slate-200">${escapeHtml(t.category)}</td>
                     <td class="py-3 px-3 text-slate-600 dark:text-slate-300">${t.note || '-'}</td>
                     <td class="py-3 px-3"><span class="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">${t.account === 'cash' ? 'Tunai' : 'Bank'}</span></td>
                     <td class="py-3 px-3 text-right font-bold ${t.type === 'income' ? 'text-emerald-500' : 'text-rose-500'}">
@@ -1163,16 +1195,20 @@
             }
         }
 
-        // Allocation Modal Logic
+        // Allocation Modal Logic (nama + nominal bisa diedit)
         const allocationModal = document.getElementById('allocationModal');
         const allocationFields = document.getElementById('allocationFields');
 
         function openAllocationModal() {
-            const items = Array.from(new Set([...INITIAL_EXPENSE_ITEMS, ...Object.keys(state.allocations)]));
+            const items = Object.keys(state.allocations);
             allocationFields.innerHTML = items.map(cat => `
-                <div class="flex items-center justify-between gap-3">
-                    <label class="text-xs font-bold text-slate-700 dark:text-slate-200 w-1/2 truncate">${cat}</label>
-                    <input type="number" min="0" data-category="${cat}" value="${state.allocations[cat] || 0}" class="alloc-input w-1/2 px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                <div class="alloc-row flex items-center gap-2">
+                    <input type="text" required maxlength="40"
+                           value="${escapeHtml(cat)}" data-old="${escapeHtml(cat)}"
+                           class="alloc-name w-1/2 px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    <input type="number" min="0"
+                           value="${state.allocations[cat] || 0}"
+                           class="alloc-amount w-1/2 px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500">
                 </div>
             `).join('');
             allocationModal.classList.remove('hidden');
@@ -1184,16 +1220,48 @@
 
         document.getElementById('allocationForm').addEventListener('submit', (e) => {
             e.preventDefault();
-            const inputs = document.querySelectorAll('.alloc-input');
-            inputs.forEach(input => {
-                const cat = input.getAttribute('data-category');
-                const val = Number(input.value) || 0;
-                state.allocations[cat] = val;
-            });
 
+            const rows = document.querySelectorAll('.alloc-row');
+            const newAllocations = {};
+            const renameMap = {};
+
+            for (const row of rows) {
+                const nameInput = row.querySelector('.alloc-name');
+                const oldName = nameInput.dataset.old;
+                const newName = nameInput.value.trim() || oldName;
+                const amount = Number(row.querySelector('.alloc-amount').value) || 0;
+
+                if (Object.prototype.hasOwnProperty.call(newAllocations, newName)) {
+                    showToast(`Nama "${newName}" dipakai lebih dari satu kali.`, 'error');
+                    return;
+                }
+
+                newAllocations[newName] = amount;
+                if (newName !== oldName) renameMap[oldName] = newName;
+            }
+
+            // Perbarui kategori di transaksi lama agar realisasi tetap terhitung
+            const changedTx = [];
+            if (Object.keys(renameMap).length > 0) {
+                state.transactions.forEach(tx => {
+                    if (Object.prototype.hasOwnProperty.call(renameMap, tx.category)) {
+                        tx.category = renameMap[tx.category];
+                        changedTx.push(tx);
+                    }
+                });
+            }
+
+            state.allocations = newAllocations;
             saveState();
             closeAllocationModal();
             showToast("Alokasi anggaran berhasil diperbarui!");
+
+            // Sinkronkan transaksi yang kategorinya berubah ke Supabase
+            if (supabaseClient && changedTx.length > 0) {
+                supabaseClient.from('transactions').upsert(changedTx).then(({ error }) => {
+                    if (error) console.warn("Supabase category rename warning:", error);
+                });
+            }
         });
 
         // Goals Page Renderer
